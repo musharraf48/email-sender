@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Application {
+  id            String    @id @default(cuid())
+  email         String
+  domain        String
+  companyName   String?
+  jobType       String
+  subject       String
+  status        String    @default("applied")
+  appliedAt     DateTime  @default(now())
+  expiresAt     DateTime
+  messageId     String?
+  emailSent     Boolean   @default(false)
+  sendError     String?
+
+  recruiterName  String?
+  recruiterPhone String?
+  jobTitle       String?
+  location      String?
+  workMode      String?
+  salary        String?
+  source        String?
+  notes         String?
+  followUpDate  DateTime?
+  lastContactAt DateTime?
+  priority      String    @default("medium")
+  tags          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([domain])
+  @@index([status])
+  @@index([appliedAt])
+  @@index([expiresAt])
+}
