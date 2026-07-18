@@ -185,7 +185,7 @@ export default function Home() {
                 type="tel"
                 value={recruiterPhone}
                 onChange={(e) => setRecruiterPhone(e.target.value)}
-                placeholder="+91 98765 43210"
+                placeholder="+91 XXXXX XXXXX"
                 disabled={loading}
               />
             </div>

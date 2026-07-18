@@ -658,6 +658,7 @@ export default function ApplicationsPage() {
                 type="tel"
                 value={form.recruiterPhone}
                 onChange={(e) => setForm({ ...form, recruiterPhone: e.target.value })}
+                placeholder="+91 XXXXX XXXXX"
               />
             </div>
 
