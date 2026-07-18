@@ -155,7 +155,7 @@ export async function checkInboxReplies(): Promise<ReplyCheckResult> {
     const lock = await client.getMailboxLock('INBOX');
     try {
       const uids = await client.search({ since }, { uid: true });
-      if (!uids || uids === false || (Array.isArray(uids) && uids.length === 0)) {
+      if (!uids || uids.length === 0) {
         return { scanned: 0, matched: 0, updated: [], skippedAutoReplies: 0 };
       }
 
