@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "replyFrom" TEXT;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "replySubject" TEXT;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "replyBody" TEXT;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "replyAt" TIMESTAMP(3);

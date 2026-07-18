@@ -2,7 +2,27 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { CheckCircle2, Loader2, Mail, Plus, Trash2, User } from 'lucide-react';
 import { JOB_TYPES } from '@/lib/job-templates';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
   const [emails, setEmails] = useState<string[]>(['']);
@@ -18,8 +38,7 @@ export default function Home() {
 
   const removeEmailField = (index: number) => {
     if (emails.length > 1) {
-      const newEmails = emails.filter((_, i) => i !== index);
-      setEmails(newEmails);
+      setEmails(emails.filter((_, i) => i !== index));
     }
   };
 
@@ -35,10 +54,7 @@ export default function Home() {
     setMessage(null);
     setResults([]);
 
-    // Filter out empty emails and trim
-    const emailsToSend = emails
-      .map(email => email.trim())
-      .filter(email => email.length > 0);
+    const emailsToSend = emails.map((email) => email.trim()).filter((email) => email.length > 0);
 
     if (emailsToSend.length === 0) {
       setMessage({ type: 'error', text: 'Please enter at least one email address' });
@@ -49,9 +65,7 @@ export default function Home() {
     try {
       const response = await fetch('/api/send-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails: emailsToSend, jobType, recruiterPhone }),
       });
 
@@ -59,25 +73,24 @@ export default function Home() {
 
       if (data.success) {
         setResults(data.results || []);
-        const successCount = data.results?.filter((r: any) => r.success).length || 0;
+        const successCount = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
         const totalCount = data.results?.length || 0;
-        
+
         if (successCount === totalCount) {
           setMessage({ type: 'success', text: `All ${totalCount} email(s) sent successfully!` });
         } else {
-          setMessage({ 
-            type: 'error', 
-            text: `${successCount} of ${totalCount} email(s) sent successfully. Some failed.` 
+          setMessage({
+            type: 'error',
+            text: `${successCount} of ${totalCount} email(s) sent successfully. Some failed.`,
           });
         }
-        
-        // Reset form
+
         setEmails(['']);
         setRecruiterPhone('');
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to send emails' });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
     } finally {
       setLoading(false);
@@ -85,317 +98,159 @@ export default function Home() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.titleRow}>
-          <h1 style={styles.title}>Job Application Email Sender</h1>
-          <Link href="/applications" style={styles.trackerLink}>
-            View Tracker →
-          </Link>
-        </div>
-        
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>
-              Recruiter Email Address(es)
-            </label>
-            {emails.map((email, index) => (
-              <div key={index} style={styles.emailFieldContainer}>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => updateEmail(index, e.target.value)}
-                  placeholder="recruiter@company.com"
-                  style={styles.input}
-                  disabled={loading}
-                />
-                {index === emails.length - 1 ? (
-                  <button
-                    type="button"
-                    onClick={addEmailField}
-                    style={styles.addButton}
-                    disabled={loading}
-                    title="Add another email"
-                  >
-                    +
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => removeEmailField(index)}
-                    style={styles.removeButton}
-                    disabled={loading}
-                    title="Remove this email"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800/60 via-background to-background p-4 sm:p-6">
+      <Card className="w-full max-w-lg border-border/60 shadow-xl shadow-black/20">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-xl sm:text-2xl">Job Application Email Sender</CardTitle>
+              <CardDescription className="mt-1.5">
+                Send tailored applications with your CV attached
+              </CardDescription>
+            </div>
+            <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+              <Link href="/applications">View Tracker</Link>
+            </Button>
           </div>
 
-          <div style={styles.formGroup}>
-            <label htmlFor="recruiterPhone" style={styles.label}>
-              Recruiter Phone Number <span style={styles.optional}>(optional)</span>
-            </label>
-            <input
-              id="recruiterPhone"
-              type="tel"
-              value={recruiterPhone}
-              onChange={(e) => setRecruiterPhone(e.target.value)}
-              placeholder="+91 98765 43210"
-              style={styles.inputFull}
-              disabled={loading}
-            />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label htmlFor="jobType" style={styles.label}>
-              Job Type
-            </label>
-            <select
-              id="jobType"
-              value={jobType}
-              onChange={(e) => setJobType(e.target.value)}
-              style={styles.select}
-              disabled={loading}
-            >
-              {JOB_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || emails.every(email => !email.trim())}
-            style={{
-              ...styles.button,
-              ...(loading || emails.every(email => !email.trim()) ? styles.buttonDisabled : {}),
-            }}
-          >
-            {loading ? 'Sending...' : 'Send Application(s)'}
-          </button>
-        </form>
-
-        {message && (
-          <div
-            style={{
-              ...styles.message,
-              ...(message.type === 'success' ? styles.messageSuccess : styles.messageError),
-            }}
-          >
-            {message.text}
-          </div>
-        )}
-
-        {results.length > 0 && (
-          <div style={styles.resultsContainer}>
-            <h3 style={styles.resultsTitle}>Email Results:</h3>
-            {results.map((result, index) => (
-              <div
-                key={index}
-                style={{
-                  ...styles.resultItem,
-                  ...(result.success ? styles.resultSuccess : styles.resultError),
-                }}
+          <div className="rounded-lg border border-border/60 bg-muted/50 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <User className="h-4 w-4 shrink-0 text-primary" />
+              Musharraf Ansari
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="h-4 w-4 shrink-0" />
+              <a
+                href="mailto:musharraf.code@gmail.com"
+                className="break-all hover:text-primary hover:underline"
               >
-                <strong>{result.email}:</strong> {result.message}
-              </div>
-            ))}
+                musharraf.code@gmail.com
+              </a>
+            </div>
           </div>
-        )}
-      </div>
+        </CardHeader>
+
+        <Separator />
+
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label>Recruiter Email Address(es)</Label>
+              {emails.map((email, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => updateEmail(index, e.target.value)}
+                    placeholder="recruiter@company.com"
+                    disabled={loading}
+                    className="min-w-0"
+                  />
+                  {index === emails.length - 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={addEmailField}
+                      disabled={loading}
+                      title="Add another email"
+                      className="shrink-0"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => removeEmailField(index)}
+                      disabled={loading}
+                      title="Remove this email"
+                      className="shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recruiterPhone">
+                Recruiter Phone Number{' '}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="recruiterPhone"
+                type="tel"
+                value={recruiterPhone}
+                onChange={(e) => setRecruiterPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jobType">Job Type</Label>
+              <Select value={jobType} onValueChange={setJobType} disabled={loading}>
+                <SelectTrigger id="jobType">
+                  <SelectValue placeholder="Select job type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {JOB_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || emails.every((email) => !email.trim())}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Send Application(s)'
+              )}
+            </Button>
+          </form>
+
+          {message && (
+            <Alert
+              variant={message.type === 'success' ? 'success' : 'destructive'}
+              className="mt-5"
+            >
+              {message.type === 'success' && <CheckCircle2 className="h-4 w-4" />}
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {results.length > 0 && (
+            <div className="mt-5 space-y-2 rounded-lg border border-border/60 bg-muted/30 p-4">
+              <h3 className="text-sm font-semibold">Email Results</h3>
+              {results.map((result, index) => (
+                <div
+                  key={index}
+                  className={`rounded-md border px-3 py-2 text-sm ${
+                    result.success
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                      : 'border-red-500/30 bg-red-500/10 text-red-300'
+                  }`}
+                >
+                  <span className="font-medium">{result.email}:</span> {result.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: '20px',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '40px',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-    width: '100%',
-    maxWidth: '500px',
-  },
-  titleRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '30px',
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#333',
-    margin: 0,
-  },
-  trackerLink: {
-    fontSize: '13px',
-    color: '#0070f3',
-    textDecoration: 'none',
-    whiteSpace: 'nowrap',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  emailFieldContainer: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'flex-start',
-  },
-  addButton: {
-    padding: '12px 20px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '20px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    lineHeight: '1',
-    minWidth: '44px',
-    height: '44px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeButton: {
-    padding: '12px 20px',
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '24px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    lineHeight: '1',
-    minWidth: '44px',
-    height: '44px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#555',
-  },
-  optional: {
-    fontWeight: '400',
-    color: '#888',
-  },
-  inputFull: {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    boxSizing: 'border-box',
-  },
-  input: {
-    flex: 1,
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  select: {
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '16px',
-    outline: 'none',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    transition: 'border-color 0.2s',
-  },
-  button: {
-    padding: '12px 24px',
-    backgroundColor: '#0070f3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '16px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    marginTop: '10px',
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-    cursor: 'not-allowed',
-  },
-  message: {
-    marginTop: '20px',
-    padding: '12px',
-    borderRadius: '4px',
-    fontSize: '14px',
-    textAlign: 'center',
-  },
-  messageSuccess: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    border: '1px solid #c3e6cb',
-  },
-  messageError: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    border: '1px solid #f5c6cb',
-  },
-  resultsContainer: {
-    marginTop: '20px',
-    padding: '16px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    border: '1px solid #dee2e6',
-  },
-  resultsTitle: {
-    fontSize: '16px',
-    fontWeight: '600',
-    marginBottom: '12px',
-    color: '#333',
-  },
-  resultItem: {
-    padding: '8px 12px',
-    marginBottom: '8px',
-    borderRadius: '4px',
-    fontSize: '14px',
-  },
-  resultSuccess: {
-    backgroundColor: '#d4edda',
-    color: '#155724',
-    border: '1px solid #c3e6cb',
-  },
-  resultError: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    border: '1px solid #f5c6cb',
-  },
-};
-

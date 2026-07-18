@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         : {}),
     };
 
-    const [applications, total] = await Promise.all([
+    const [applications, total, statusGroups] = await Promise.all([
       prisma.application.findMany({
         where,
         orderBy: { appliedAt: 'desc' },
@@ -39,13 +39,21 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       prisma.application.count({ where }),
+      prisma.application.groupBy({
+        by: ['status'],
+        _count: { status: true },
+      }),
     ]);
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
+    const statusCounts = Object.fromEntries(
+      statusGroups.map((group) => [group.status, group._count.status])
+    );
 
     return NextResponse.json({
       success: true,
       applications,
+      statusCounts,
       pagination: {
         page,
         limit,
