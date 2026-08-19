@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const emails = Array.isArray(body?.emails) ? body.emails : [];
+    const emails: unknown[] = Array.isArray(body?.emails) ? body.emails : [];
 
     const normalized = [
       ...new Set(
         emails
-          .filter((email: unknown): email is string => typeof email === 'string')
+          .filter((email): email is string => typeof email === 'string')
           .map((email) => email.trim().toLowerCase())
           .filter((email) => email.length > 0 && isValidEmail(email))
       ),
