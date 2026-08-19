@@ -13,6 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -24,6 +31,21 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
+type DuplicateApp = {
+  email: string;
+  jobType: string;
+  status: string;
+  appliedAt: string;
+  companyName: string | null;
+};
+
+const formatAppliedDate = (value: string) =>
+  new Date(value).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
 export default function Home() {
   const [emails, setEmails] = useState<string[]>(['']);
   const [jobType, setJobType] = useState('React Developer');
@@ -31,6 +53,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [results, setResults] = useState<Array<{ email: string; success: boolean; message: string }>>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateApp[]>([]);
+  const [duplicateDecisions, setDuplicateDecisions] = useState<Record<string, 'apply' | 'discard'>>({});
+  const [pendingEmails, setPendingEmails] = useState<string[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const addEmailField = () => {
     setEmails([...emails, '']);
@@ -48,16 +74,9 @@ export default function Home() {
     setEmails(newEmails);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-    setResults([]);
-
-    const emailsToSend = emails.map((email) => email.trim()).filter((email) => email.length > 0);
-
+  const sendEmails = async (emailsToSend: string[]) => {
     if (emailsToSend.length === 0) {
-      setMessage({ type: 'error', text: 'Please enter at least one email address' });
+      setMessage({ type: 'error', text: 'No emails left to send. Discarded already-applied addresses.' });
       setLoading(false);
       return;
     }
@@ -95,6 +114,85 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    setResults([]);
+
+    const emailsToSend = [
+      ...new Set(emails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0)),
+    ];
+
+    if (emailsToSend.length === 0) {
+      setMessage({ type: 'error', text: 'Please enter at least one email address' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const checkResponse = await fetch('/api/applications/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: emailsToSend }),
+      });
+      const checkData = await checkResponse.json();
+
+      if (!checkResponse.ok || !checkData.success) {
+        setMessage({ type: 'error', text: checkData.error || 'Failed to check previous applications' });
+        setLoading(false);
+        return;
+      }
+
+      const found: DuplicateApp[] = checkData.duplicates || [];
+      if (found.length > 0) {
+        setPendingEmails(emailsToSend);
+        setDuplicates(found);
+        setDuplicateDecisions({});
+        setDialogOpen(true);
+        setLoading(false);
+        return;
+      }
+
+      await sendEmails(emailsToSend);
+    } catch {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      setLoading(false);
+    }
+  };
+
+  const finishDuplicates = async (decisions: Record<string, 'apply' | 'discard'>) => {
+    const discarded = new Set(
+      Object.entries(decisions)
+        .filter(([, decision]) => decision === 'discard')
+        .map(([email]) => email)
+    );
+    const emailsToSend = pendingEmails.filter((email) => !discarded.has(email));
+    setDialogOpen(false);
+    setDuplicates([]);
+    setPendingEmails([]);
+    setDuplicateDecisions({});
+    setLoading(true);
+    setMessage(null);
+    await sendEmails(emailsToSend);
+  };
+
+  const decideDuplicate = (email: string, decision: 'apply' | 'discard') => {
+    const next = { ...duplicateDecisions, [email]: decision };
+    setDuplicateDecisions(next);
+    const allDecided = duplicates.every((item) => next[item.email]);
+    if (allDecided) {
+      void finishDuplicates(next);
+    }
+  };
+
+  const cancelDuplicates = () => {
+    setDialogOpen(false);
+    setDuplicates([]);
+    setPendingEmails([]);
+    setDuplicateDecisions({});
   };
 
   return (
@@ -251,6 +349,53 @@ export default function Home() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && cancelDuplicates()}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Already applied</DialogTitle>
+            <DialogDescription>
+              You have already applied to {duplicates.length === 1 ? 'this email' : 'these emails'}.
+              Choose apply again or discard for each one.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {duplicates.map((item) => {
+              const decision = duplicateDecisions[item.email];
+              return (
+                <div key={item.email} className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                  <p className="break-all text-sm font-medium">{item.email}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Applied on {formatAppliedDate(item.appliedAt)}
+                    {item.jobType ? ` as ${item.jobType}` : ''}
+                    {item.status ? ` · ${item.status}` : ''}
+                    {item.companyName ? ` · ${item.companyName}` : ''}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={decision === 'apply' ? 'default' : 'outline'}
+                      onClick={() => decideDuplicate(item.email, 'apply')}
+                    >
+                      Apply again
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={decision === 'discard' ? 'destructive' : 'outline'}
+                      onClick={() => decideDuplicate(item.email, 'discard')}
+                    >
+                      Discard
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
