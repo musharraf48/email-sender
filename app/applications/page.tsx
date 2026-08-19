@@ -133,6 +133,8 @@ export default function ApplicationsPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [editing, setEditing] = useState<Application | null>(null);
+  const [deleting, setDeleting] = useState<Application | null>(null);
+  const [deletingInProgress, setDeletingInProgress] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -302,21 +304,32 @@ export default function ApplicationsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this application record?')) return;
+  const closeDelete = () => {
+    if (deletingInProgress) return;
+    setDeleting(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+
+    setDeletingInProgress(true);
+    setMessage(null);
 
     try {
-      const response = await fetch(`/api/applications/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/applications/${deleting.id}`, { method: 'DELETE' });
       const data = await response.json();
 
       if (data.success) {
         setMessage({ type: 'success', text: 'Application deleted' });
+        setDeleting(null);
         fetchApplications();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to delete' });
       }
     } catch {
       setMessage({ type: 'error', text: 'Network error while deleting' });
+    } finally {
+      setDeletingInProgress(false);
     }
   };
 
@@ -473,7 +486,7 @@ export default function ApplicationsPage() {
                             size="sm"
                             variant="destructive"
                             className="flex-1"
-                            onClick={() => handleDelete(app.id)}
+                            onClick={() => setDeleting(app)}
                           >
                             Delete
                           </Button>
@@ -531,7 +544,7 @@ export default function ApplicationsPage() {
                                 <Button
                                   size="sm"
                                   variant="destructive"
-                                  onClick={() => handleDelete(app.id)}
+                                  onClick={() => setDeleting(app)}
                                 >
                                   Delete
                                 </Button>
@@ -764,6 +777,34 @@ export default function ApplicationsPage() {
                 </>
               ) : (
                 'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleting} onOpenChange={(open) => !open && closeDelete()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete application?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove{' '}
+              <span className="font-medium text-foreground">{deleting?.email}</span>
+              {deleting?.companyName ? ` (${deleting.companyName})` : ''} from your tracker.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={closeDelete} disabled={deletingInProgress}>
+              Discard
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deletingInProgress}>
+              {deletingInProgress ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
               )}
             </Button>
           </DialogFooter>
